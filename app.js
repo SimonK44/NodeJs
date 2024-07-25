@@ -6,6 +6,10 @@ const { v4: uuidv4 } = require('uuid');
 // Middleware pour autoriser express à recevoir des données en JSON dans le body
 app.use(express.json());
 
+function responseService(res, code, message, data) {
+    return res.json({ code : code, message : message, data : data});
+}
+
 //------------------------BDD------------------------//
 
 // Importer Mongoose
@@ -33,7 +37,7 @@ const Article = mongoose.model('Article', { uid: String, title : String, content
 // Route get vers tous les articles
 app.get('/articles', async (req, res) => {
     const articles = await Article.find();
-    return res.json(articles);
+    return responseService(res, '200', 'La liste des articles a été récupérés avec succès', articles);
 });
 
 
@@ -44,9 +48,9 @@ app.get('/article/:id', async (req, res) => {
     const foundArticle = await Article.findOne({ uid : idParam});
 
     if (!foundArticle) {
-        return res.json({message : `L'article n'éxiste pas`});
+        return responseService(res, '702', `Impossible de récupérer un article avec l'UID ${idParam}`, null);
     }
-    return res.json(foundArticle);
+    return responseService(res, '200', 'Article récupéré avec succès', foundArticle);
 });
 
 
@@ -57,19 +61,17 @@ app.post('/save-article', async (req, res) => {
     const articleJSON = req.body;
 
     let foundArticle = null;
-
     //-------------------------
     // EDITION
     //-------------------------
     //Est-ce qu'on a un id envoyer dans le json
-    if (articleJSON.id != undefined || articleJSON.id) {
+    if (articleJSON.uid != undefined || articleJSON.uid) {
         
         //Essayer de trouver un article existant
-        foundArticle = await Article.findOne({ uid : id });
-
-        //Si je trouve l'article à modifier
+        foundArticle = await Article.findOne({ uid : articleJSON.uid });
+        //Si je ne trouve pas l'article à modifier
         if (!foundArticle) {
-            return res.json(`Impossible de modifier un article inexistant`)
+            return responseService(res, '701', 'Impossible d\'ajouter un article avec un titre déjà existant', null);
         }
         foundArticle.title = articleJSON.title;
         foundArticle.content = articleJSON.content;
@@ -78,7 +80,7 @@ app.post('/save-article', async (req, res) => {
         // Sauvegarder en base
         await foundArticle.save();
 
-        return res.json(`Article modifié avec succès`);
+        return responseService(res, '200', 'Article modifié avec succès', foundArticle);
     }
 
     //-------------------------
@@ -93,7 +95,7 @@ app.post('/save-article', async (req, res) => {
     //Sauvegarder en base
     await createdArticle.save();
 
-    return res.json(`Article créé avec succès`);
+    return responseService(res, '200', 'Article ajouté avec succès', createdArticle);
 });
 
 
@@ -107,13 +109,13 @@ app.delete('/article/:id', async (req, res) => {
     const foundArticle = await Article.findOne({ uid : id });
 
     if (!foundArticle) {
-        return res.json(`Article non trouvé`);
+        return responseService(res, '702', 'Impossible de supprimer un article dont l\'UID n\'existe pas', null);
     }
 
     //Supprimer 1 élément
     await foundArticle.deleteOne();
 
-    return res.json(`suppression article ${id}`);
+    return responseService(res, '200', `L'article ${id} a été supprimé avec succès`, foundArticle);
 });
 
 
