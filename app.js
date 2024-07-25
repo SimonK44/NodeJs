@@ -6,6 +6,14 @@ const { v4: uuidv4 } = require('uuid');
 // Middleware pour autoriser express à recevoir des données en JSON dans le body
 app.use(express.json());
 
+/**
+ * Fonction utilitaire pour retourner une structure de réponse métier 
+ * @param {*} res 
+ * @param {*} code 
+ * @param {*} message 
+ * @param {*} data 
+ * @returns 
+ */
 function responseService(res, code, message, data) {
     return res.json({ code : code, message : message, data : data});
 }
@@ -42,7 +50,8 @@ app.get('/articles', async (req, res) => {
 
 
 // Route get vers 1 article par id
-app.get('/article/:id', async (req, res) => {    
+app.get('/article/:id', async (req, res) => { 
+    //Récupérer l'id de la requête   
     const idParam = req.params.id;
 
     const foundArticle = await Article.findOne({ uid : idParam});
@@ -66,12 +75,17 @@ app.post('/save-article', async (req, res) => {
     //-------------------------
     //Est-ce qu'on a un id envoyer dans le json
     if (articleJSON.uid != undefined || articleJSON.uid) {
+        // Si le titre existe déjà
+        const articleByTitle = await Article.findOne({ title : articleJSON.title, uid : { $ne : articleJSON.uid} });
+        if(articleByTitle) {
+            return responseService(res, '701', 'Impossible de modifier un article avec un titre déjà existant', null);
+        }
         
         //Essayer de trouver un article existant
         foundArticle = await Article.findOne({ uid : articleJSON.uid });
         //Si je ne trouve pas l'article à modifier
         if (!foundArticle) {
-            return responseService(res, '701', 'Impossible d\'ajouter un article avec un titre déjà existant', null);
+            return responseService(res, '701', 'Impossible de modifier un article inexistant', null);
         }
         foundArticle.title = articleJSON.title;
         foundArticle.content = articleJSON.content;
@@ -81,6 +95,12 @@ app.post('/save-article', async (req, res) => {
         await foundArticle.save();
 
         return responseService(res, '200', 'Article modifié avec succès', foundArticle);
+    }
+
+    // Tester que le titre n'éxiste pas en base
+    const articleByTitle = await Article.findOne({ title : articleJSON.title });
+    if(articleByTitle) {
+        return responseService(res, '701', 'Impossible d\'ajouter un article avec un titre déjà existant', null);
     }
 
     //-------------------------
